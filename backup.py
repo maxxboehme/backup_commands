@@ -6,6 +6,11 @@ import random
 import time
 import shutil
 import json
+import logging
+import glob
+import optparse
+
+_moduleLogger = logging.getLogger(__name__)
 
 BARS = 50
 MAX = 1000
@@ -16,24 +21,8 @@ def _file_count(folder):
    for root, dirs, files in os.walk(folder):
       total += len(files)
    return total
-   
-def _file_copy(source_folder, destination_folder):
-   for root, dirs, files in os.walk(source_folder):
-      for item in files:
-         src_path = os.path.join(root, item)
-         dst_path = os.path.join(destination_folder, src_path.replace(source_folder, ""))
-         if os.path.exists(dst_path):
-            if os.stat(src_path).st_mtime > os.stat(dst_path).st_mtime:
-               shutil.copy2(src_path, dst_path)
-         else:
-            shutil.copy(src_path, dst_path)
-      for item in dirs:
-         src_path = os.path.join(root, item)
-         dst_path = os.path.join(destination_folder, src_path.replace(source_folder, ""))
-         if not os.path.exists(dst_path):
-            os.mkdir(dst_path)
 
-def _my_file_copy(source, destination, forceCopy=False):
+def _file_copy(source, destination, forceCopy=False):
    copyCount = 0
    totalNumberOfFiles = _file_count(source)
    fileCount = 0
@@ -77,11 +66,9 @@ def _gen_files_rec(path, numberOfDirs, numberOfFiles, height, maxHeight):
          _gen_files_rec(newPath, numberOfDirs, numberOfFiles, height+1, maxHeight)
       for i in xrange(0, numberOfFiles):
          open(path+"\\TestFile"+str(i)+".txt", "w+")
-      
-         
 
 def _print_loading_bar2(x, maxLimit, numberBars):
-   percentag = (x*100) / maxLimit
+   percentag = (x * 100) / maxLimit
    #print "percentage: " + str(percentag)
    colums = 100.0 / numberBars
    #print "colums: " + str(colums)
@@ -98,31 +85,140 @@ backup list keys
 def _print_keys(keyFiles):
    for key in keyFiles:
       print("\t"+key)
-      
+
 def _write_dictionary_to_file(dictionary, destination):
    with open(destination, 'w') as outputFile:
-      json.dump(dictionary, destination)
+      json.dump(dictionary, outputFile)
       
-def _load_dictionary_from_file(dictionary, source):
-   with open(source, 'r') as inputFile:
-      dictonary = json.load(inputFile)
-
-def _main(args):
-   # print(_file_count(".\\test"))
-   #shutil.copytree(".\\test", ".\\testTemp")
-   #_my_file_copy(".\\testGen", ".\\testTemp")
-   #_gen_files(".\\testGen", 2, 20, 5)
-   fileKeys = {}
-   fileKeys["programs"] = (".\\testGen", ".\\testTemp")
-   (source, destination) = fileKeys["programs"]
-   _my_file_copy(source, destination)
-   _print_keys(fileKeys)
+def _load_dictionary_from_file(source):
+   dictionary = {}
+   if os.path.exists(source):
+      with open(source, 'r') as inputFile:
+         dictionary = json.load(inputFile)
+   return dictionary
    '''
    for i in xrange(0, MAX+1):
       newline = True if i == MAX else False
       _print_loading_bar2(i, newline, MAX, BARS)
       time.sleep(.1)
    '''
+
+def _parse_options(args):
+   # Setup the required arguments for this script
+   usage = r"""
+usage: %prog [options]
+
+Ex: 
+> python %prog 
+""".strip()
+   parser = optparse.OptionParser(usage)
+   parser.add_option(
+     "--copy",
+     action="store_true", dest="copy", default=False,
+     help=""
+   )
+   parser.add_option(
+     "--list",
+     action="store_true", dest="list", default=False,
+     help=""
+   )
+   parser.add_option(
+     "--gen",
+     action="store_true", dest="gen", default=False,
+     help=""
+   )
+   parser.add_option(
+     "--add",
+     action="store", dest="add", default="",
+     help=""
+   )
+   parser.add_option(
+     "-s", "--source",
+     action="store", dest="source", metavar="SOURCE", default="",
+     help="NIMXL file to check for colliding ranges. Can include more then one source to test if ranges in any files collide with each other."
+   )
+   parser.add_option(
+      "--destination",
+      action="store", dest="destination", default="",
+      help=""
+   )
+   debugGroup = optparse.OptionGroup(parser, "Debug")
+   debugGroup.add_option(
+      "--verbose",
+      action="store", dest="verboseLevel", default='1',
+      help="Verbose output level."
+   )
+   debugGroup.add_option(
+      "--log-file", metavar="PATH",
+      action="store", dest="logFile",
+      help="Write the log to file (if specified)"
+   )
+   debugGroup.add_option(
+      "--test",
+      action="store_true", dest="test", default=False,
+      help="Run doctests then quit."
+   )
+   parser.add_option_group(debugGroup)
+
+   options, positional = parser.parse_args(args)
+   if positional:
+      parser.error("Unsupported positional arguments %r" % positional)
+
+   loggingLevel = {
+      0: logging.DEBUG,
+      1: logging.INFO,
+      2: logging.WARNING,
+      3: logging.ERROR,
+      4: logging.CRITICAL,
+   }.get(int(options.verboseLevel), None)
+   if loggingLevel is None:
+      parser.error("Unsupported verbosity: %r" % options.verboseLevel)
+
+   return options, loggingLevel
+
+
+def _main(args):
+   options, loggingLevel = _parse_options(args)
+
+   logFormat = '(%(asctime)s) %(levelname)-5s %(name)s.%(funcName)s: %(message)s'
+   logging.basicConfig(level=loggingLevel, format=logFormat)
+   if options.logFile is not None:
+      fileHandler = logging.FileHandler(options.logFile, "w")
+      fileHandler.setFormatter(logging.Formatter(logFormat))
+      root = logging.getLogger()
+      root.addHandler(fileHandler)
+
+   if options.test:
+      import doctest
+      print (doctest.testmod())
+      return 0
+
+   fileKeys = {}
+   #fileKeys["programs"] = (".\\testGen", ".\\testTemp")
+
+   fileKeys = _load_dictionary_from_file(".\\backup_commands.temp")
+   if options.gen:
+      _gen_files(".\\testGen", 2, 20, 5)
+   elif options.list:
+      _print_keys(fileKeys)
+   elif options.copy and options.source and options.destination:
+      _file_copy(options.source, options.destination)
+   elif options.add and options.source and options.destination:
+      fileKeys[options.add] = (options.source, options.destination)
+      _write_dictionary_to_file(fileKeys, ".\\backup_commands.temp")
+   '''
+   print(_file_count(".\\test"))
+   shutil.copytree(".\\test", ".\\testTemp")
+   _my_file_copy(".\\testGen", ".\\testTemp")
+   _gen_files(".\\testGen", 2, 20, 5)
+   fileKeys = {}
+   fileKeys["programs"] = (".\\testGen", ".\\testTemp")
+   (source, destination) = fileKeys["programs"]
+   _my_file_copy(source, destination)
+   _print_keys(fileKeys)
+   '''
+   return 0
+
 
 if __name__ == "__main__":
    retCode = _main(sys.argv[1:])
