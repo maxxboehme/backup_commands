@@ -39,20 +39,7 @@ def _file_copy(source, destination, forceCopy=False):
                shutil.copy(root+"\\"+file, destination+root.strip(".")+"\\"+file)
                copyCount += 1
          _print_loading_bar2(fileCount, totalNumberOfFiles, 50)
-            
-   
-def _print_loading_bar(x, maxLimit, numberBars):
-   percentag = (x*100) / maxLimit
-   #print "percentage: " + str(percentag)
-   colums = 100.0 / numberBars
-   #print "colums: " + str(colums)
-   bars = int(percentag / colums)
-   #print "bars: " + str(bars)
-   arrow = ">" if (bars != numberBars) else ""
-   print("[" + ("=" * bars) + arrow + (" " * (numberBars - bars - 1))+"]")
-   if x < maxLimit:
-      sys.stdout.write("\033[F") # Cursor up one line
-      
+
 def _gen_files(destination, numberOfDirs, numberOfFiles, maxHeight):
    _gen_files_rec(destination, numberOfDirs, numberOfFiles, 0, maxHeight)
       
@@ -66,6 +53,18 @@ def _gen_files_rec(path, numberOfDirs, numberOfFiles, height, maxHeight):
          _gen_files_rec(newPath, numberOfDirs, numberOfFiles, height+1, maxHeight)
       for i in xrange(0, numberOfFiles):
          open(path+"\\TestFile"+str(i)+".txt", "w+")
+
+def _print_loading_bar(x, maxLimit, numberBars):
+   percentag = (x*100) / maxLimit
+   #print "percentage: " + str(percentag)
+   colums = 100.0 / numberBars
+   #print "colums: " + str(colums)
+   bars = int(percentag / colums)
+   #print "bars: " + str(bars)
+   arrow = ">" if (bars != numberBars) else ""
+   print("[" + ("=" * bars) + arrow + (" " * (numberBars - bars - 1))+"]")
+   if x < maxLimit:
+      sys.stdout.write("\033[F") # Cursor up one line
 
 def _print_loading_bar2(x, maxLimit, numberBars):
    percentag = (x * 100) / maxLimit
@@ -83,8 +82,49 @@ def _print_loading_bar2(x, maxLimit, numberBars):
 backup list keys
 '''
 def _print_keys(keyFiles):
-   for key in keyFiles:
-      print("\t"+key)
+   maxLengthKey = len("Keys")
+   maxLengthSource = len("Source")
+   maxLengthDestination = len("Destination")
+
+   for key, (source, destination) in keyFiles.iteritems():
+      if maxLengthKey < len(key):
+         maxLengthKey = len(key)
+      if maxLengthSource < len(source):
+         maxLengthSource = len(source)
+      if maxLengthDestination < len(destination):
+         maxLengthDestination = len(destination)
+   maxLengthKey += 3
+   maxLengthSource += 3
+   maxLengthDestination += 3
+   
+   col = ""
+   for i in xrange(len("Keys"), maxLengthKey):
+      col += " "
+   col += "Keys"
+   for i in xrange(len("Source"), maxLengthSource):
+      col += " "
+   col += "Source"
+   for i in xrange(len("Destination"), maxLengthDestination):
+      col += " "
+   col += "Destination"
+   print(col)
+   l = len(col)
+   for i in xrange(0, l):
+      print ("-", end="")
+   print()
+   
+   for key, (source, destination) in keyFiles.iteritems():
+      col = ""
+      for i in xrange(len(key), maxLengthKey):
+         col += " "
+      col += key
+      for i in xrange(len(source), maxLengthSource):
+         col += " "
+      col += source
+      for i in xrange(len(destination), maxLengthDestination):
+         col += " "
+      col += destination
+      print(col)
 
 def _write_dictionary_to_file(dictionary, destination):
    with open(destination, 'w') as outputFile:
@@ -218,7 +258,6 @@ def _main(args):
    _print_keys(fileKeys)
    '''
    return 0
-
 
 if __name__ == "__main__":
    retCode = _main(sys.argv[1:])
