@@ -5,11 +5,10 @@ import os
 import random
 import time
 import shutil
-import json
-import pickle
 import logging
 import glob
 import optparse
+import platform
 
 _moduleLogger = logging.getLogger(__name__)
 
@@ -26,20 +25,18 @@ def _file_count(folder):
 def _file_copy(source, destination, forceCopy=False):
    copyCount = 0
    totalNumberOfFiles = _file_count(source)
-   baseFile = os.path.basename(source)
    fileCount = 0
    for root, dirs, files in os.walk(source):
-      currentDir = destination+"\\"+baseFile+root.replace(source, "")+"\\"
       for file in files:
          fileCount += 1
-         if not os.path.exists(currentDir):
-            os.makedirs(currentDir)
-         if forceCopy or not os.path.exists(currentDir+file):
-            shutil.copy(root+"\\"+file, currentDir+file)
+         if not os.path.exists(destination+root.strip(".")):
+            os.makedirs(destination+root.strip("."))
+         if forceCopy or not os.path.exists(destination+root.strip(".")+"\\"+file):
+            shutil.copy(root+"\\"+file, destination+root.strip(".")+"\\"+file)
             copyCount += 1
          else:
-            if os.stat(root+"\\"+file).st_mtime > os.stat(currentDir+file).st_mtime:
-               shutil.copy(root+"\\"+file, currentDir+file)
+            if os.stat(root+"\\"+file).st_mtime > os.stat(destination+root.strip(".")+"\\"+file).st_mtime:
+               shutil.copy(root+"\\"+file, destination+root.strip(".")+"\\"+file)
                copyCount += 1
          _print_loading_bar3(fileCount, totalNumberOfFiles, 50)
    return copyCount
@@ -106,9 +103,11 @@ def _print_loading_bar3(x, maxLimit, numberBars):
    print "[" + ("=" * bars) + arrow + (" " * (numberBars - bars - 1)) + "]" + "\t" + str(x)+"/" + str(maxLimit) + " Files Copied" + end,
    sys.stdout.flush()
    
-
+'''
+backup list keys
+'''
 def _print_keys(keyFiles, destination):
-   print "\nRemote Destination: " + str(destination) + "\n"
+   print "\nRemote Destination: " + destination + "\n"
    gap = 6
    maxLengthKey = len("Keys")
    maxLengthSource = len("Source")
@@ -160,7 +159,7 @@ def _write_variables_to_file(outputPath, destination):
       pickle.dump(destination, outputFile)
       
 def _load_variables_from_file(source):
-   results = None
+   results = ()
    if os.path.exists(source):
       with open(source, 'r') as inputFile:
          results = pickle.load(inputFile)
@@ -288,42 +287,24 @@ def _main(args):
       import doctest
       print (doctest.testmod())
       return 0
-
-   fileKeys = {}
-   #fileKeys["programs"] = (".\\testGen", ".\\testTemp")
-   
-   appdata = os.environ['APPDATA']+'\\BackupScript'
-   print appdata
-   if not os.path.exists(appdata):
-      os.makedirs(appdata)
-   destination = _load_variables_from_file(appdata+'\\backup.pckl')
-
-   fileKeys = _load_dictionary_from_file(appdata+"\\backup_commands.json")
-   if options.gen:
-      _gen_files(".\\testGen", 2, 20, 5)
-   elif options.list:
-      _print_keys(fileKeys, destination)
-   elif options.copy and destination:
-      if not fileKeys[options.copy]: 
-         return str(options.copy)+ " does not exist"
-      else:
-         numNeededUpdating = _file_copy(fileKeys[options.copy], destination, options.force)
-         print str(numNeededUpdating) + " files where updated"
-   elif options.delete:
-      if not fileKeys[options.delete]: 
-         return str(options.delete)+ " does not exist"
-      else:
-         _delete_files(destination+fileKeys[options.delete].strip('.'))
-   elif options.add and options.source:
-      fileKeys[options.add] = os.path.abspath(options.source)
-      _write_dictionary_to_file(fileKeys, appdata+"\\backup_commands.json")
-   elif options.remove:
-      del fileKeys[options.remove]
-      _write_dictionary_to_file(fileKeys, appdata+"\\backup_commands.json")
-   elif options.destination:
-      destination = os.path.abspath(options.destination)
-      _write_variables_to_file(appdata+'\\backup.pckl', destination)
-   return 0
+    
+   print "For this script to work make sure you have at lest Python 2.7 and that you are running with administrator or root privileges.\nContinue?[y/n]"
+   answer = sys.stdin.readline().upper().strip()
+   if answer != "Y" and answer != "YES":
+      return 0
+   userOS = platform.system()
+   print "Installing for "+userOS
+   winInstallPath = "C:\\Program Files\\BackupScript"
+   if userOS == "Windows":
+      if not os.path.exists(winInstallPath):
+         os.makedirs(winInstallPath)
+      shutil.copy(".\\installers\\windows\\backup.py", winInstallPath+"\\backup.py")
+      shutil.copy(".\\installers\\windows\\backup.bat", winInstallPath+"\\backup.bat")
+      os.environ["BACKUPSCRIPT"] = winInstallPath + "\\backup.bat"
+      os.system(".\\installers\\windows\\backupinstaller.bat")
+      #path = os.environ["PATH"]
+      #if path[-1] != ";" os.envrion["PATH"] += ";"
+      #os.environ["PATH"] += "%BACKUPSCRIPT%;"
 
 if __name__ == "__main__":
    retCode = _main(sys.argv[1:])

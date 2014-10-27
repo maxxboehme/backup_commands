@@ -26,20 +26,18 @@ def _file_count(folder):
 def _file_copy(source, destination, forceCopy=False):
    copyCount = 0
    totalNumberOfFiles = _file_count(source)
-   baseFile = os.path.basename(source)
    fileCount = 0
    for root, dirs, files in os.walk(source):
-      currentDir = destination+"\\"+baseFile+root.replace(source, "")+"\\"
       for file in files:
          fileCount += 1
-         if not os.path.exists(currentDir):
-            os.makedirs(currentDir)
-         if forceCopy or not os.path.exists(currentDir+file):
-            shutil.copy(root+"\\"+file, currentDir+file)
+         if not os.path.exists(destination+root.strip(".")):
+            os.makedirs(destination+root.strip("."))
+         if forceCopy or not os.path.exists(destination+root.strip(".")+"\\"+file):
+            shutil.copy(root+"\\"+file, destination+root.strip(".")+"\\"+file)
             copyCount += 1
          else:
-            if os.stat(root+"\\"+file).st_mtime > os.stat(currentDir+file).st_mtime:
-               shutil.copy(root+"\\"+file, currentDir+file)
+            if os.stat(root+"\\"+file).st_mtime > os.stat(destination+root.strip(".")+"\\"+file).st_mtime:
+               shutil.copy(root+"\\"+file, destination+root.strip(".")+"\\"+file)
                copyCount += 1
          _print_loading_bar3(fileCount, totalNumberOfFiles, 50)
    return copyCount
@@ -106,9 +104,11 @@ def _print_loading_bar3(x, maxLimit, numberBars):
    print "[" + ("=" * bars) + arrow + (" " * (numberBars - bars - 1)) + "]" + "\t" + str(x)+"/" + str(maxLimit) + " Files Copied" + end,
    sys.stdout.flush()
    
-
+'''
+backup list keys
+'''
 def _print_keys(keyFiles, destination):
-   print "\nRemote Destination: " + str(destination) + "\n"
+   print "\nRemote Destination: " + destination + "\n"
    gap = 6
    maxLengthKey = len("Keys")
    maxLengthSource = len("Source")
@@ -160,7 +160,7 @@ def _write_variables_to_file(outputPath, destination):
       pickle.dump(destination, outputFile)
       
 def _load_variables_from_file(source):
-   results = None
+   results = ()
    if os.path.exists(source):
       with open(source, 'r') as inputFile:
          results = pickle.load(inputFile)
@@ -292,13 +292,9 @@ def _main(args):
    fileKeys = {}
    #fileKeys["programs"] = (".\\testGen", ".\\testTemp")
    
-   appdata = os.environ['APPDATA']+'\\BackupScript'
-   print appdata
-   if not os.path.exists(appdata):
-      os.makedirs(appdata)
-   destination = _load_variables_from_file(appdata+'\\backup.pckl')
+   destination = _load_variables_from_file('.\\backup.pckl')
 
-   fileKeys = _load_dictionary_from_file(appdata+"\\backup_commands.json")
+   fileKeys = _load_dictionary_from_file(".\\backup_commands.json")
    if options.gen:
       _gen_files(".\\testGen", 2, 20, 5)
    elif options.list:
@@ -315,14 +311,13 @@ def _main(args):
       else:
          _delete_files(destination+fileKeys[options.delete].strip('.'))
    elif options.add and options.source:
-      fileKeys[options.add] = os.path.abspath(options.source)
-      _write_dictionary_to_file(fileKeys, appdata+"\\backup_commands.json")
+      fileKeys[options.add] = options.source
+      _write_dictionary_to_file(fileKeys, ".\\backup_commands.json")
    elif options.remove:
       del fileKeys[options.remove]
-      _write_dictionary_to_file(fileKeys, appdata+"\\backup_commands.json")
+      _write_dictionary_to_file(fileKeys, ".\\backup_commands.json")
    elif options.destination:
-      destination = os.path.abspath(options.destination)
-      _write_variables_to_file(appdata+'\\backup.pckl', destination)
+      _write_variables_to_file('.\\backup.pckl', options.destination)
    return 0
 
 if __name__ == "__main__":
